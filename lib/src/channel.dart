@@ -110,6 +110,11 @@ class PhoenixChannel {
   /// This channel's unique numeric reference.
   String get reference => _reference ??= socket.nextRef;
 
+  /// Awaitable future until the channel has joined at least once.
+  final Completer<void> _joinedCompleter = Completer<void>();
+  Future<void> get joinedOnce => _joinedCompleter.future;
+  bool get hasJoinedOnce => _joinedCompleter.isCompleted;
+
   /// Returns a future that will complete (or throw) when the provided
   /// reply arrives (or throws).
   Future<Message> onPushReply(PhoenixChannelEvent replyEvent) {
@@ -328,6 +333,7 @@ class PhoenixChannel {
       ..onReply('ok', (response) {
         _logger.finer("Join message was ok'ed");
         _state = PhoenixChannelState.joined;
+        _joinedCompleter.complete();
         _rejoinTimer?.cancel();
         for (final push in pushBuffer) {
           push.send();
