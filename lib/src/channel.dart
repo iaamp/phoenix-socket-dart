@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:logging/logging.dart';
+import 'package:apps_dart/apps_dart_common.dart';
 
 import 'events.dart';
 import 'exceptions.dart';
@@ -46,6 +47,7 @@ class PhoenixChannel {
     Map<String, dynamic>? parameters,
     Duration? timeout,
   })  : _controller = StreamController.broadcast(),
+        _joinRC = ResettableCompleter(),
         _waiters = {},
         parameters = parameters ?? {},
         _timeout = timeout ?? socket.defaultTimeout {
@@ -65,6 +67,12 @@ class PhoenixChannel {
   final StreamController<Message> _controller;
   final Map<PhoenixChannelEvent, Completer<Message>> _waiters;
   final List<StreamSubscription> _subscriptions = [];
+
+  /// joinRC can be awaited until the channel is open
+  /// In case of a disconnect, it resets, making late joiners wait again until
+  /// it is open again.
+  ResettableCompleter get joinRC => _joinRC;
+  final ResettableCompleter _joinRC;
 
   /// The name of the topic to which this channel will bind.
   final String topic;
@@ -142,6 +150,7 @@ class PhoenixChannel {
       return;
     }
     _state = PhoenixChannelState.closed;
+    _joinRC.reset();
 
     for (final push in pushBuffer) {
       push.cancelTimeout();
@@ -181,6 +190,7 @@ class PhoenixChannel {
 
       final prevState = _state;
       _state = PhoenixChannelState.errored;
+      _joinRC.reset();
       if (prevState == PhoenixChannelState.joining) {
         _joinPush.reset();
       }
@@ -236,6 +246,7 @@ class PhoenixChannel {
       _attemptJoin();
     } else {
       _state = PhoenixChannelState.errored;
+      _joinRC.reset();
     }
 
     return _joinPush;
@@ -333,6 +344,7 @@ class PhoenixChannel {
       ..onReply('ok', (response) {
         _logger.finer("Join message was ok'ed");
         _state = PhoenixChannelState.joined;
+        _joinRC.complete();
         _joinedCompleter.complete();
         _rejoinTimer?.cancel();
         for (final push in pushBuffer) {
@@ -343,6 +355,7 @@ class PhoenixChannel {
       ..onReply('error', (response) {
         _logger.warning('Join message got error response: $response');
         _state = PhoenixChannelState.errored;
+        _joinRC.reset();
         if (socket.isConnected) {
           _startRejoinTimer();
         }
@@ -358,6 +371,7 @@ class PhoenixChannel {
         ).send();
 
         _state = PhoenixChannelState.errored;
+        _joinRC.reset();
         _joinPush.reset();
         if (socket.isConnected) {
           _startRejoinTimer();
@@ -400,6 +414,7 @@ class PhoenixChannel {
         _joinPush.reset();
       }
       _state = PhoenixChannelState.errored;
+      _joinRC.reset();
       if (socket.isConnected) {
         _rejoinTimer?.cancel();
         _startRejoinTimer();
