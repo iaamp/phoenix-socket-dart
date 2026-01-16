@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:logging/logging.dart';
-import 'package:apps_dart/apps_dart_common.dart';
+import 'package:apps_dart/common.dart';
 
 import 'events.dart';
 import 'exceptions.dart';
