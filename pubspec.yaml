@@ -15,7 +15,7 @@ dependencies:
   web_socket_channel: ^3.0.1
 
   haven_types:
-    path: ../../apps/haven_types/
+    path: ../../haven/haven_types/
 
 dev_dependencies:
   build_runner: ^2.4.9

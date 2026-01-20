@@ -11,6 +11,6 @@ dependencies:
   phoenix_socket:
     path: ../
 
-  uuid: ^3.0.1
+  uuid: ^4.0.1
 
 dev_dependencies: {}
